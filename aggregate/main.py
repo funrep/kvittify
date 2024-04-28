@@ -12,6 +12,8 @@ from unstructured_client.models import shared
 from unstructured_client.models.errors import SDKError
 from sse_starlette.sse import EventSourceResponse
 
+from fastapi.middleware.cors import CORSMiddleware
+
 from data_model import Order
 from utils import create
 
@@ -19,6 +21,16 @@ directory_path = 'receipts'
 un_client = UnstructuredClient(api_key_auth=os.getenv('UNSTRUCTURED_IO_API'))
 client = OpenAI()
 app = FastAPI()
+
+origins = ["*"]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 def json_serial(obj):
     """JSON serializer for objects not serializable by default json code"""
@@ -88,7 +100,10 @@ def process_streamer():
                 response_format={ "type": "json_object" }
             )
 
-            json_content = json.dumps(order.dict(), default=json_serial, ensure_ascii=False)
+            order = order.dict()
+            order["uuid"] = str(uuid.uuid4())
+
+            json_content = json.dumps(order, default=json_serial, ensure_ascii=False)
 
             yield {
                 "event": "order",

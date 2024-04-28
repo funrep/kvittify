@@ -3,7 +3,6 @@ from typing import List
 
 from pydantic import BaseModel, ValidationError
 
-
 def create(client, messages : List[dict], model_class: BaseModel, retry=5, temperature=0, **kwargs) -> BaseModel:
     last_exception = None
     for i in range(retry+1):
