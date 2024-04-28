@@ -1,0 +1,4 @@
+fastapi==0.110.2
+openai==1.23.6
+sse-starlette==2.1.0
+unstructured-client==0.22.0
