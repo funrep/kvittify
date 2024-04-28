@@ -6,6 +6,7 @@ from typing import List
 
 from fastapi import FastAPI
 from fastapi.responses import Response
+from fastapi.middleware.cors import CORSMiddleware
 
 from openai import OpenAI
 
@@ -14,7 +15,6 @@ from unstructured_client.models import shared
 from unstructured_client.models.errors import SDKError
 from sse_starlette.sse import EventSourceResponse
 
-from fastapi.middleware.cors import CORSMiddleware
 
 from data_model import Order
 from utils import create
@@ -184,6 +184,7 @@ def process():
 @app.get("/process_stream")
 def process():
     return EventSourceResponse(process_streamer())
+
 
 @app.get("/get_receipt")
 def download_receipt(uuid: str):
