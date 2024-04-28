@@ -9,7 +9,7 @@ import scala.collection.JavaConverters
 
 object WillysGptDataScrapper {
 
-  val folder = "data/"
+  val folder = "aggregate/receipts"
 
   def downloadFile(url: String, destination: String): Unit = {
     (new URL(url) #> new File(destination)).!
@@ -60,8 +60,9 @@ object WillysGptDataScrapper {
 
     Thread.sleep(1000)
     val login = driver.findElements(By.className("sc-dfa63f22-0")).get(1)
-    // val login = driver.findElements(By.ByPartialLinkText("Logga in")).get(1)
     login.click()
+
+    println("LOG: Logged in")
 
     Thread.sleep(2000)
     val userId = driver.findElement(By.className("sc-a3164ebe-0"))
@@ -73,20 +74,50 @@ object WillysGptDataScrapper {
     val purchases = driver.findElement(By.ByPartialLinkText("Mina köp"))
     purchases.click()
 
-    Thread.sleep(2000)
+    println("LOG: Go to receipts page")
 
-    val allPurchases = driver.findElements(By.className("sc-139d58d8-4"))
+    Thread.sleep(1000)
+
+    val calender = driver.findElements(By.className("sc-fde63b83-0")).get(3)
+    calender.click()
+    Thread.sleep(500)
+
+    val backwards = driver.findElement(By.className("rdp-nav_icon"))
+    backwards.click()
+    Thread.sleep(500)
+
+    val numberOne = driver.findElements(By.className("rdp-day")).get(3)
+    numberOne.click()
+    Thread.sleep(500)
+
+    val choose = driver.findElements(By.className("sc-dfa63f22-0")).get(3)
+    choose.click()
+    Thread.sleep(1000)
+
+    println("LOG: Updated calender")
+
+    val showMore = driver.findElement(By.className("sc-67897609-2"))
+    showMore.click()
+    Thread.sleep(1000)
+    driver.executeScript("window.scrollTo(0, document.body.scrollHeight)")
+    Thread.sleep(1000)
+
+    println("LOG: Force load more receipts")
+
+    val purchaseTable = driver.findElement(By.className("sc-139d58d8-1"))
+    val allPurchases = purchaseTable.findElements(By.className("sc-f1f2eb33-0"))
     val recieptLinks =
       for reciept <- JavaConverters.asScalaBuffer(allPurchases).toSeq
-          inner = reciept.findElement(By.className("sc-f1f2eb33-0"))
-      yield inner.getAttribute("href")
+      yield reciept.getAttribute("href")
     
-    for link <- recieptLinks
+    for link <- recieptLinks.filter(_ != null)
         params = new URI(link).getQuery.split('&').collect { case s"$key=$value" => key -> value }.toMap
         filePath = s"${folder}/${params("date")}-${params("storeId")}-${params("memberCardNumber")}.pdf"
       yield downloadFile(link, filePath)
+    
+    println("downloaded reciepts")
  
-    Thread.sleep(10000)
+    Thread.sleep(1000000)
     driver.quit()
   }
 }
