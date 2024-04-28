@@ -5,6 +5,8 @@ import uuid
 from typing import List
 
 from fastapi import FastAPI
+from fastapi.responses import Response
+
 from openai import OpenAI
 
 from unstructured_client import UnstructuredClient
@@ -32,6 +34,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+db = {}
+
 def json_serial(obj):
     """JSON serializer for objects not serializable by default json code"""
 
@@ -57,7 +61,7 @@ def process_streamer():
                 "event": "status",
                 "id": uuid.uuid4(),
                 "retry": 1500,
-                "data": {"index": index, "total": total}
+                "data": json.dumps({"index": index, "total": total})
             }
 
             file = open(file_path, "rb")
@@ -102,8 +106,13 @@ def process_streamer():
 
             order = order.dict()
             order["uuid"] = str(uuid.uuid4())
+            order["file_path"] = file_path
+
+            db[order["uuid"]] = order
 
             json_content = json.dumps(order, default=json_serial, ensure_ascii=False)
+
+            print(json.dumps(order, default=json_serial, ensure_ascii=False, indent=4))
 
             yield {
                 "event": "order",
@@ -113,6 +122,85 @@ def process_streamer():
             }
 
 
+def test_streamer():
+    order = {
+        "items": [
+            {
+                "product": "PÅSKMUST 1.4L",
+                "price": 9.49,
+                "food_type": "Beverage",
+                "discount": None,
+                "quantity": 2,
+                "quantity_kg": None,
+                "price_per_kg": None
+            },
+            {
+                "product": "RAMLÖSA FLÄDER/LIME",
+                "price": 9.9,
+                "food_type": "Beverage",
+                "discount": None,
+                "quantity": 1,
+                "quantity_kg": None,
+                "price_per_kg": None
+            },
+            {
+                "product": "MARGARIN M/FR 7096",
+                "price": 19.9,
+                "food_type": "Dairy",
+                "discount": None,
+                "quantity": 1,
+                "quantity_kg": None,
+                "price_per_kg": None
+            }
+        ],
+        "date": "2024-04-19",
+        "uuid": "92c1424d-52a9-45ef-b0c3-d6c86e3d06e3",
+        "file_path": "receipts/2024-04-19T19_29_21.pdf"
+    } 
+
+    db["92c1424d-52a9-45ef-b0c3-d6c86e3d06e3"] = order
+
+    json_content = json.dumps(order, default=json_serial, ensure_ascii=False)
+
+    yield {
+        "event": "status",
+        "id": uuid.uuid4(),
+        "retry": 1500,
+        "data": json.dumps({"index": 0, "total": 1})
+    }
+
+    yield {
+        "event": "order",
+        "id": uuid.uuid4(),
+        "retry": 1500,
+        "data": json_content
+    }
+     
+@app.get("/test_stream")
+def process():
+    return EventSourceResponse(test_streamer())
+
+
 @app.get("/process_stream")
 def process():
     return EventSourceResponse(process_streamer())
+
+@app.get("/get_receipt")
+def download_receipt(uuid: str):
+    headers = {f'Content-Disposition': 'inline; filename="{uuid}.pdf"'}
+
+    if uuid not in db.keys():
+        return Response(status_code=404, content="File not found in db")
+    
+    file_path = db[uuid]["file_path"]
+
+   # Ensure the file exists before attempting to open it
+    if not os.path.isfile(file_path):
+        return Response(status_code=404, content="File not found in file system")
+
+    # Read the binary content of the file
+    with open(file_path, 'rb') as file:
+        file_content = file.read()
+
+    return Response(content=file_content, headers=headers, media_type='application/pdf')
+

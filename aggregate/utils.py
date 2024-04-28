@@ -11,9 +11,6 @@ def create(client, messages : List[dict], model_class: BaseModel, retry=5, tempe
             temperature=temperature, 
             **kwargs
         )
-
-        print(response.choices[0].message)
-
         assistant_message = response.choices[0].message.content
         content = assistant_message
 
